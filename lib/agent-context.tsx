@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   AgentStateType,
   AgentTimelineEvent,
+  EventCategory,
   SituationModelData,
   PerceptionStreamItem,
   DEFAULT_AGENT_EVENTS,
@@ -24,12 +25,12 @@ interface AgentContextType {
   setIsScreenSharing: (active: boolean) => void;
   activeNavRail: "resolve" | "sessions" | "memory" | "activity" | "settings";
   setActiveNavRail: (nav: "resolve" | "sessions" | "memory" | "activity" | "settings") => void;
-  approveAction: (eventId: string) => void;
+  approveAction: (eventId: string) => Promise<void>;
   rejectAction: (eventId: string) => void;
-  submitUserIntent: (intentText: string) => void;
+  submitUserIntent: (intentText: string) => Promise<void>;
   loadScenario: (scenarioId: string) => void;
   resetSession: () => void;
-  sessionTimer: number; // in seconds
+  sessionTimer: number;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
@@ -42,9 +43,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(true);
   const [activeNavRail, setActiveNavRail] = useState<"resolve" | "sessions" | "memory" | "activity" | "settings">("resolve");
-  const [sessionTimer, setSessionTimer] = useState<number>(258); // 04:18
+  const [sessionTimer, setSessionTimer] = useState<number>(258);
 
-  // Timer counter
   useEffect(() => {
     const timer = setInterval(() => {
       setSessionTimer((prev) => prev + 1);
@@ -52,97 +52,171 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(timer);
   }, []);
 
-  const approveAction = (eventId: string) => {
-    // 1. Mark event as completed
+  // Submit User Intent -> Stream server reasoning from /api/agent/resolve
+  const submitUserIntent = async (intentText: string) => {
+    if (!intentText.trim()) return;
+
+    setAgentState("OBSERVING");
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    // Add User Intent Event
+    const userEvt: AgentTimelineEvent = {
+      id: `evt-${Date.now()}`,
+      category: "USER_INTENT",
+      title: "User Intent Received",
+      description: intentText,
+      timestamp,
+      status: "completed",
+    };
+
+    setEvents((prev) => [...prev, userEvt]);
+    setSituation((prev) => ({
+      ...prev,
+      userGoal: intentText,
+      agentState: "OBSERVING",
+    }));
+
+    try {
+      const response = await fetch("/api/agent/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: intentText }),
+      });
+
+      if (!response.body) return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const serverEvent = JSON.parse(line);
+
+          let cat: EventCategory = "REASONING";
+          let state: AgentStateType = "THINKING";
+
+          if (serverEvent.type === "perception") {
+            cat = "PERCEPTION";
+            state = "OBSERVING";
+          } else if (serverEvent.type === "observation") {
+            cat = "OBSERVATION";
+            state = "OBSERVING";
+          } else if (serverEvent.type === "reasoning") {
+            cat = "REASONING";
+            state = "THINKING";
+          } else if (serverEvent.type === "action_request") {
+            cat = "ACTION_PROPOSED";
+            state = "ACTING";
+          }
+
+          setAgentState(state);
+          setEvents((prev) => [
+            ...prev,
+            {
+              id: `evt-${Date.now()}-${Math.random()}`,
+              category: cat,
+              title: serverEvent.type.toUpperCase().replace("_", " "),
+              description: serverEvent.message,
+              timestamp: serverEvent.timestamp || new Date().toLocaleTimeString(),
+              status: serverEvent.requiresApproval ? "pending_approval" : "completed",
+              requiresApproval: serverEvent.requiresApproval,
+              details: serverEvent.details,
+            },
+          ]);
+
+          setSituation((prev) => ({
+            ...prev,
+            agentState: state,
+            detectedIssue: serverEvent.message,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to connect to ResolveAI agent streaming route:", err);
+    }
+  };
+
+  // Approve Action -> Stream tool execution and verification from /api/agent/approve
+  const approveAction = async (eventId: string) => {
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, status: "completed" as const } : e))
     );
 
-    // 2. Transition state to ACTING
     setAgentState("ACTING");
-    setSituation((prev) => ({
-      ...prev,
-      agentState: "ACTING",
-      recentActions: ["User authorized action", ...prev.recentActions],
-    }));
 
-    // 3. Add ACTION Event after 1s
-    setTimeout(() => {
-      const actionEvt: AgentTimelineEvent = {
-        id: `evt-${Date.now()}-1`,
-        category: "ACTION",
-        title: "Executing Authorized Fix",
-        description: "Created `.env.local` and started background worker `npm run dev`.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        status: "completed",
-        details: {
-          logs: [
-            "[10:14:22] > writing .env.local... DONE",
-            "[10:14:23] > starting development server...",
-            "[10:14:24] ready - started server on 0.0.0.0:3000, url: http://localhost:3000",
-          ],
-        },
-      };
+    try {
+      const response = await fetch("/api/agent/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, toolId: "restart_server" }),
+      });
 
-      setEvents((prev) => [...prev, actionEvt]);
-      setAgentState("VERIFYING");
-      setSituation((prev) => ({
-        ...prev,
-        agentState: "VERIFYING",
-        detectedIssue: "Executing verification probe...",
-        recentActions: ["Created .env.local file", "Launched npm run dev", ...prev.recentActions],
-      }));
+      if (!response.body) return;
 
-      // 4. Add VERIFICATION Event after 2.5s
-      setTimeout(() => {
-        const verifEvt: AgentTimelineEvent = {
-          id: `evt-${Date.now()}-2`,
-          category: "VERIFICATION",
-          title: "Result Verification",
-          description: "Issued HTTP HEAD request to http://localhost:3000. Server responded with 200 OK (18ms).",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          status: "completed",
-          details: {
-            metrics: {
-              "Response Code": "200 OK",
-              "Latency": "18ms",
-              "SSL": "Disabled (localhost)",
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const serverEvent = JSON.parse(line);
+
+          let cat: EventCategory = "ACTION";
+          let state: AgentStateType = "ACTING";
+
+          if (serverEvent.type === "action") {
+            cat = "ACTION";
+            state = "ACTING";
+          } else if (serverEvent.type === "verification") {
+            cat = "VERIFICATION";
+            state = "VERIFYING";
+          } else if (serverEvent.type === "success") {
+            cat = "SUCCESS";
+            state = "RESOLVED";
+          }
+
+          setAgentState(state);
+          setEvents((prev) => [
+            ...prev,
+            {
+              id: `evt-${Date.now()}-${Math.random()}`,
+              category: cat,
+              title: serverEvent.type.toUpperCase(),
+              description: serverEvent.message,
+              timestamp: serverEvent.timestamp || new Date().toLocaleTimeString(),
+              status: "completed",
+              details: serverEvent.details,
             },
-          },
-        };
+          ]);
 
-        setEvents((prev) => [...prev, verifEvt]);
-
-        // 5. Add SUCCESS Event after 3.8s
-        setTimeout(() => {
-          const successEvt: AgentTimelineEvent = {
-            id: `evt-${Date.now()}-3`,
-            category: "SUCCESS",
-            title: "Problem Resolved",
-            description: "Application environment initialized successfully. Development server is running and accessible.",
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            status: "completed",
-          };
-
-          setEvents((prev) => [...prev, successEvt]);
-          setAgentState("RESOLVED");
           setSituation((prev) => ({
             ...prev,
-            agentState: "RESOLVED",
-            detectedIssue: "None - System operational",
-            confidenceScore: 100,
-            screenState: "Active Application (HTTP 200)",
-            recentActions: ["Verified HTTP localhost:3000 status 200", ...prev.recentActions],
+            agentState: state,
+            confidenceScore: state === "RESOLVED" ? 100 : prev.confidenceScore,
+            detectedIssue: state === "RESOLVED" ? "None - Application verified" : prev.detectedIssue,
           }));
-
-          setPerception((prev) =>
-            prev.map((p) =>
-              p.id === "5" ? { ...p, label: "Status normal", value: "HTTP 200 OK", status: "normal" } : p
-            )
-          );
-        }, 1500);
-      }, 1500);
-    }, 1000);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to approve tool action via server route:", err);
+    }
   };
 
   const rejectAction = (eventId: string) => {
@@ -150,86 +224,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((e) => (e.id === eventId ? { ...e, status: "failed" as const } : e))
     );
     setAgentState("THINKING");
-    setSituation((prev) => ({
-      ...prev,
-      agentState: "THINKING",
-      recentActions: ["User rejected action proposal", ...prev.recentActions],
-    }));
-  };
-
-  const submitUserIntent = (intentText: string) => {
-    if (!intentText.trim()) return;
-
-    // Reset timeline with new intent sequence
-    setAgentState("OBSERVING");
-    
-    const userEvt: AgentTimelineEvent = {
-      id: `evt-${Date.now()}`,
-      category: "USER_INTENT",
-      title: "User Intent Received",
-      description: intentText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      status: "completed",
-    };
-
-    setEvents((prev) => [...prev, userEvt]);
-
-    setSituation((prev) => ({
-      ...prev,
-      userGoal: intentText,
-      agentState: "OBSERVING",
-    }));
-
-    // Perception step
-    setTimeout(() => {
-      setAgentState("OBSERVING");
-      const percEvt: AgentTimelineEvent = {
-        id: `evt-${Date.now()}-perc`,
-        category: "PERCEPTION",
-        title: "Multimodal Context Capture",
-        description: "Scanning screen frame, open DOM elements, and active window state...",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        status: "completed",
-      };
-      setEvents((prev) => [...prev, percEvt]);
-
-      // Reasoning step
-      setTimeout(() => {
-        setAgentState("THINKING");
-        const reasonEvt: AgentTimelineEvent = {
-          id: `evt-${Date.now()}-reason`,
-          category: "REASONING",
-          title: "Synthesizing Solution Strategy",
-          description: `Analyzing context for query: "${intentText}". Computing optimal resolution trajectory...`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          status: "completed",
-        };
-        setEvents((prev) => [...prev, reasonEvt]);
-
-        // Action Proposal step
-        setTimeout(() => {
-          setAgentState("THINKING");
-          const propEvt: AgentTimelineEvent = {
-            id: `evt-${Date.now()}-prop`,
-            category: "ACTION_PROPOSED",
-            title: "Action Plan Proposed",
-            description: `Execute automated fix script for: ${intentText}`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            status: "pending_approval",
-            requiresApproval: true,
-            details: {
-              codeSnippet: `# Automated resolution task\nresolveai exec --target "${intentText}"`,
-            },
-          };
-          setEvents((prev) => [...prev, propEvt]);
-          setSituation((prev) => ({
-            ...prev,
-            agentState: "THINKING",
-            detectedIssue: `Awaiting authorization for ${intentText}`,
-          }));
-        }, 1200);
-      }, 1200);
-    }, 800);
   };
 
   const loadScenario = (scenarioId: string) => {

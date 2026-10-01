@@ -1,6 +1,8 @@
 import { AgentStateType, DiagnosticEvidence } from "@/types/resolve";
 import { analyzeUserIntent } from "@/lib/ai/agent";
-import { checkEndpoint, inspectPort, getProcessStatus, getRecentTerminalOutput } from "@/lib/tools/diagnostics";
+import { checkEndpoint, inspectPort, getProcessStatus, getRecentTerminalOutput, font_diagnostic_tools_registry } from "@/lib/tools/diagnostics";
+
+export const SAFE_TOOLS_REGISTRY = font_diagnostic_tools_registry;
 
 export interface ServerAgentEvent {
   type:

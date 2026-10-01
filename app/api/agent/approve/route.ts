@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SAFE_TOOLS_REGISTRY } from "@/lib/server/agent-engine";
+import { mockToolsRegistry } from "@/lib/tools/mock-tools";
 
 export const runtime = "nodejs";
 
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { toolId = "restart_server", eventId } = body;
 
-    const tool = SAFE_TOOLS_REGISTRY[toolId] || SAFE_TOOLS_REGISTRY.restart_server;
+    const toolFn = (mockToolsRegistry as any)[toolId] || mockToolsRegistry.restart_server;
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -35,10 +35,12 @@ export async function POST(req: NextRequest) {
         );
 
         // Execute simulated safe tool
-        await tool.execute({});
+        if (typeof toolFn === "function") {
+          await toolFn();
+        }
 
         // 2. VERIFICATION STEP
-        await new Promise((r) => setTimeout(r, 1600));
+        await new Promise((r) => setTimeout(r, 1200));
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
         );
 
         // 3. SUCCESS / RESULT STEP
-        await new Promise((r) => setTimeout(r, 1800));
+        await new Promise((r) => setTimeout(r, 1200));
         controller.enqueue(
           encoder.encode(
             JSON.stringify({

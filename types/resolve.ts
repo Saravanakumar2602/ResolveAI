@@ -19,6 +19,13 @@ export type EventCategory =
 
 export type EventStatus = "completed" | "in_progress" | "pending_approval" | "failed";
 
+export interface DiagnosticEvidence {
+  source: string;
+  observation: string;
+  severity: "info" | "warning" | "error";
+  confidence?: number;
+}
+
 export interface AgentTimelineEvent {
   id: string;
   category: EventCategory;
@@ -34,6 +41,10 @@ export interface AgentTimelineEvent {
     suggestedFix?: string;
     isDemoMode?: boolean;
     isLivePerception?: boolean;
+    isLiveTool?: boolean;
+    evidenceList?: string[];
+    toolName?: string;
+    toolPermission?: "READ_ONLY" | "MUTATING";
   };
   requiresApproval?: boolean;
 }
@@ -46,6 +57,7 @@ export interface SituationModelData {
   agentState: AgentStateType;
   confidenceScore: number;
   recentActions: string[];
+  diagnosticEvidence: DiagnosticEvidence[];
   toolsAvailable: {
     name: string;
     type: "Screen" | "Terminal" | "Browser" | "Files";

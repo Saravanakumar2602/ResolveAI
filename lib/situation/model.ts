@@ -17,8 +17,22 @@ export const INITIAL_SITUATION_MODEL: SituationModelData = {
   confidenceScore: 96,
   recentActions: [
     "Analyzed screen OCR & terminal traceback",
-    "Detected port 3000 socket closure",
-    "Inspected root directory for .env files",
+    "Executed check_endpoint probe on localhost:3000",
+    "Executed get_process_status diagnostic scan",
+  ],
+  diagnosticEvidence: [
+    {
+      source: "check_endpoint",
+      observation: "http://localhost:3000 refused connection (ECONNREFUSED)",
+      severity: "error",
+      confidence: 98,
+    },
+    {
+      source: "get_process_status",
+      observation: "Development server process PID 4892 terminated (Exit code 1)",
+      severity: "error",
+      confidence: 96,
+    },
   ],
   toolsAvailable: [
     { name: "Screen Vision", type: "Screen", status: "Active", icon: "Eye" },

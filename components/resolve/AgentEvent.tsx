@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AgentTimelineEvent, EventCategory } from "@/lib/mock-data";
+import { AgentTimelineEvent, EventCategory } from "@/types/resolve";
 import { ActionApproval } from "./ActionApproval";
 import { VerificationStatus } from "./VerificationStatus";
 import {
@@ -17,6 +17,8 @@ import {
   ChevronUp,
   Clock,
   Search,
+  Wrench,
+  ShieldCheck,
 } from "lucide-react";
 
 interface AgentEventProps {
@@ -46,7 +48,7 @@ const categoryConfig: Record<
     lineGlow: "bg-blue-500",
   },
   OBSERVATION: {
-    label: "OBSERVATION",
+    label: "INVESTIGATING",
     icon: Terminal,
     color: "text-blue-400",
     badgeBg: "bg-blue-950/60 text-blue-300 border-blue-500/40",
@@ -54,8 +56,8 @@ const categoryConfig: Record<
     lineGlow: "bg-blue-500",
   },
   DETECTION: {
-    label: "DETECTION",
-    icon: AlertTriangle,
+    label: "EVIDENCE",
+    icon: ShieldCheck,
     color: "text-rose-400",
     badgeBg: "bg-rose-950/60 text-rose-300 border-rose-500/40",
     border: "border-rose-500/30",
@@ -113,6 +115,7 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
     (event.details.logs?.length ||
       event.details.codeSnippet ||
       event.details.metrics ||
+      event.details.evidenceList?.length ||
       event.details.suggestedFix);
 
   return (
@@ -136,6 +139,26 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
               <CategoryIcon className="w-3 h-3" />
               {cfg.label}
             </span>
+
+            {/* Diagnostic Tool Badge */}
+            {event.details?.toolName && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-cyan-300">
+                <Wrench className="w-3 h-3 text-cyan-400" />
+                TOOL: {event.details.toolName}
+              </span>
+            )}
+
+            {/* LIVE TOOL vs SIMULATED TOOL badge */}
+            {event.details?.isLiveTool !== undefined && (
+              <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                event.details.isLiveTool
+                  ? "text-emerald-300 bg-emerald-950/60 border-emerald-500/40"
+                  : "text-amber-300 bg-amber-950/60 border-amber-500/40"
+              }`}>
+                {event.details.isLiveTool ? "LIVE TOOL" : "SIMULATED TOOL"}
+              </span>
+            )}
+
             <span className="text-sm font-semibold text-zinc-100">{event.title}</span>
           </div>
 
@@ -157,8 +180,21 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
           </div>
         </div>
 
-        {/* Text */}
-        <p className="text-xs text-zinc-300 leading-relaxed font-sans">{event.description}</p>
+        {/* Text Description */}
+        <p className="text-xs text-zinc-300 leading-relaxed font-sans whitespace-pre-line">{event.description}</p>
+
+        {/* Evidence List */}
+        {event.details?.evidenceList && event.details.evidenceList.length > 0 && (
+          <div className="mt-2.5 p-2.5 rounded bg-zinc-900/80 border border-zinc-800/80 space-y-1 font-mono text-xs text-zinc-300">
+            <div className="text-[10px] text-cyan-400 font-bold uppercase mb-1">Synthesized Diagnostic Evidence:</div>
+            {event.details.evidenceList.map((ev, i) => (
+              <div key={i} className="flex items-start gap-1.5 text-[11px] font-sans">
+                <span className="text-cyan-400 font-mono text-[10px] mt-0.5">•</span>
+                <span>{ev}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Action Approval */}
         {event.category === "ACTION_PROPOSED" && event.requiresApproval && (
@@ -166,6 +202,7 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
             eventId={event.id}
             codeSnippet={event.details?.codeSnippet}
             affectedFiles={event.details?.affectedFiles}
+            evidenceList={event.details?.evidenceList}
             onApprove={onApprove}
             onReject={onReject}
             isPending={event.status === "pending_approval"}
@@ -201,7 +238,7 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
             )}
 
             {event.details?.suggestedFix && (
-              <div className="bg-purple-950/20 border border-purple-500/30 p-2.5 rounded text-xs text-purple-200">
+              <div className="bg-purple-950/20 border border-purple-500/30 p-2.5 rounded text-xs text-purple-200 font-sans">
                 <span className="font-semibold text-purple-300 block mb-0.5">Suggested Strategy:</span>
                 {event.details.suggestedFix}
               </div>

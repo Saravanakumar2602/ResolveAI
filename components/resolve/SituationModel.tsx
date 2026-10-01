@@ -7,13 +7,14 @@ import { AgentState } from "./AgentState";
 import {
   Target,
   AppWindow,
-  Monitor,
   AlertCircle,
   Activity,
   History,
   Wrench,
   Gauge,
   Layers,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 
 interface SituationModelProps {
@@ -114,6 +115,27 @@ export const SituationModel: React.FC<SituationModelProps> = ({ data, isLivePerc
             {data.detectedIssue || "None isolated"}
           </div>
         </div>
+
+        {/* DIAGNOSTIC EVIDENCE MODEL */}
+        {data.diagnosticEvidence && data.diagnosticEvidence.length > 0 && (
+          <div className="bg-zinc-900/80 border border-cyan-500/30 p-2.5 rounded-lg space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-bold uppercase">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span>DIAGNOSTIC EVIDENCE</span>
+            </div>
+            <div className="space-y-1 text-[11px] font-sans">
+              {data.diagnosticEvidence.map((ev, i) => (
+                <div key={i} className="p-1.5 rounded bg-zinc-950/80 border border-zinc-800 text-zinc-300">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mb-0.5">
+                    <span className="text-cyan-300 font-bold">[{ev.source}]</span>
+                    {ev.confidence && <span className="text-zinc-400">{ev.confidence}%</span>}
+                  </div>
+                  <p className="leading-snug">{ev.observation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* AGENT STATE */}
         <div className="bg-zinc-900/60 border border-zinc-800/80 p-2.5 rounded-lg flex items-center justify-between">

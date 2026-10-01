@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { Play, X, ShieldAlert, Terminal, FileCode } from "lucide-react";
+import { Play, X, ShieldAlert, Terminal, FileCode, ShieldCheck } from "lucide-react";
 
 interface ActionApprovalProps {
   eventId: string;
   codeSnippet?: string;
   affectedFiles?: string[];
+  evidenceList?: string[];
   onApprove: (eventId: string) => void;
   onReject: (eventId: string) => void;
   isPending?: boolean;
@@ -16,6 +17,7 @@ export const ActionApproval: React.FC<ActionApprovalProps> = ({
   eventId,
   codeSnippet,
   affectedFiles = [],
+  evidenceList = [],
   onApprove,
   onReject,
   isPending = true,
@@ -26,15 +28,28 @@ export const ActionApproval: React.FC<ActionApprovalProps> = ({
     <div className="mt-3.5 p-4 rounded-lg bg-amber-950/20 border border-amber-500/40 shadow-xl space-y-3">
       <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold tracking-wider uppercase">
         <ShieldAlert className="w-4 h-4 text-amber-400 animate-pulse" />
-        <span>ACTION REQUESTED</span>
+        <span>ACTION PROPOSED</span>
       </div>
 
-      <div className="space-y-1 font-sans">
+      <div className="space-y-1.5 font-sans">
         <div className="text-sm font-semibold text-zinc-100">
-          Restart development server & generate configuration file
+          Restart the development server
         </div>
-        <div className="text-xs text-zinc-400 font-mono">
-          <span className="text-amber-400/90 font-semibold">Reason:</span> The current application server is not responding due to missing environment variables.
+
+        {evidenceList.length > 0 && (
+          <div className="p-2.5 rounded bg-zinc-950/80 border border-zinc-800 space-y-1 font-mono text-xs text-zinc-300">
+            <div className="text-[10px] text-cyan-400 font-bold uppercase mb-1">Evidence Gathered:</div>
+            {evidenceList.map((ev, i) => (
+              <div key={i} className="flex items-start gap-1.5 text-[11px] font-sans">
+                <span className="text-cyan-400 font-mono text-[10px] mt-0.5">•</span>
+                <span>{ev}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="text-xs text-zinc-400 font-mono pt-1">
+          <span className="text-amber-400/90 font-semibold">Reason:</span> The available evidence indicates that the development server is not currently running.
         </div>
       </div>
 
@@ -54,9 +69,9 @@ export const ActionApproval: React.FC<ActionApprovalProps> = ({
         <div className="rounded bg-zinc-950/90 border border-zinc-800/90 p-3 font-mono text-xs text-cyan-300 overflow-x-auto">
           <div className="flex items-center justify-between text-[10px] text-zinc-500 border-b border-zinc-800 pb-1 mb-1.5">
             <span className="flex items-center gap-1 font-bold uppercase">
-              <Terminal className="w-3 h-3 text-amber-400" /> SYSTEM EXECUTION COMMAND
+              <Terminal className="w-3 h-3 text-amber-400" /> PROPOSED BASH SCRIPT
             </span>
-            <span>BASH</span>
+            <span>MUTATING TOOL</span>
           </div>
           <pre className="text-[11px] leading-relaxed whitespace-pre-wrap">{codeSnippet}</pre>
         </div>

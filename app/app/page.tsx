@@ -229,7 +229,9 @@ function WorkspaceContent() {
 export default function WorkspacePage() {
   return (
     <AgentProvider>
-      <WorkspaceContent />
+      <React.Suspense fallback={<div className="h-screen w-screen bg-[#050608]" />}>
+        <WorkspaceContent />
+      </React.Suspense>
     </AgentProvider>
   );
 }

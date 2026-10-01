@@ -54,7 +54,7 @@ export const SAFE_TOOLS_REGISTRY: Record<string, SafeTool> = {
     name: "Restart Development Server",
     description: "Launches background dev server process on port 3000",
     requiresApproval: true,
-    execute: async (args) => {
+    execute: async () => {
       await new Promise((res) => setTimeout(res, 1200));
       return {
         success: true,
@@ -72,7 +72,7 @@ export const SAFE_TOOLS_REGISTRY: Record<string, SafeTool> = {
     name: "Create Local Environment Config",
     description: "Generates .env.local fallback configuration file",
     requiresApproval: true,
-    execute: async (args) => {
+    execute: async () => {
       await new Promise((res) => setTimeout(res, 800));
       return {
         success: true,
@@ -86,7 +86,7 @@ export const SAFE_TOOLS_REGISTRY: Record<string, SafeTool> = {
     name: "Verify Endpoint Status",
     description: "Issues HTTP HEAD request to target host",
     requiresApproval: false,
-    execute: async (args) => {
+    execute: async () => {
       await new Promise((res) => setTimeout(res, 600));
       return {
         success: true,
@@ -97,24 +97,67 @@ export const SAFE_TOOLS_REGISTRY: Record<string, SafeTool> = {
 };
 
 /**
+ * Call Groq Llama 3 API for AI reasoning if GROQ_API_KEY is configured
+ */
+async function callGroqReasoning(userIntent: string): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are ResolveAI, an autonomous multimodal AI agent. Provide a concise 1-sentence technical diagnosis for the user issue.",
+          },
+          {
+            role: "user",
+            content: userIntent,
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 150,
+      }),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error("Groq API call error:", e);
+    return null;
+  }
+}
+
+/**
  * Multimodal reasoning engine stream generator.
- * Emits real-time structured events to the client.
  */
 export async function* runAgentReasoningPipeline(
   intent: string
 ): AsyncGenerator<ServerAgentEvent, void, unknown> {
   const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
+  // Try calling Groq AI Llama 3 model
+  const groqDiagnosis = await callGroqReasoning(intent);
+
   // Step 1: Perception
   yield {
     type: "perception",
-    message: "Analyzing screen context, terminal buffer, and desktop windows...",
+    message: "Scanning active desktop windows, OCR frame buffer, and terminal process state...",
     timestamp: time(),
     details: {
       metrics: {
-        "Vision Resolution": "3840x2160 @ 60FPS",
+        "Vision Sensor": "3840x2160 @ 60FPS",
         "Active Application": "VS Code + Integrated Terminal",
-        "OCR Frame Tokens": "1,420 tokens",
+        "OCR Extraction": "1,420 tokens",
+        "AI Engine": groqDiagnosis ? "Groq Llama 3.3 70B" : "ResolveAI Native Engine",
       },
     },
   };
@@ -138,10 +181,10 @@ export async function* runAgentReasoningPipeline(
 
   await new Promise((r) => setTimeout(r, 1000));
 
-  // Step 3: Detection & Reasoning
+  // Step 3: Reasoning
   yield {
     type: "reasoning",
-    message: `Synthesizing strategy for: "${intent}". Missing .env.local configuration file detected.`,
+    message: groqDiagnosis || `Synthesizing resolution strategy for: "${intent}". Missing .env.local configuration file detected.`,
     timestamp: time(),
     details: {
       suggestedFix: "Generate .env.local from project template and restart background server worker.",
@@ -150,7 +193,7 @@ export async function* runAgentReasoningPipeline(
 
   await new Promise((r) => setTimeout(r, 1100));
 
-  // Step 4: Action Requested (Requires Human Authorization)
+  // Step 4: Action Requested
   yield {
     type: "action_request",
     message: "ResolveAI requests permission to create .env.local and launch npm run dev",

@@ -16,6 +16,19 @@ import { Shield, Clock, RefreshCw, ArrowLeft, Terminal, Eye, Play, Sparkles } fr
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+function DemoUrlInitializer() {
+  const searchParams = useSearchParams();
+  const { runLiveDemo } = useAgent();
+
+  useEffect(() => {
+    if (searchParams.get("demo") === "true" || searchParams.get("demo") === "live") {
+      runLiveDemo();
+    }
+  }, [searchParams, runLiveDemo]);
+
+  return null;
+}
+
 function WorkspaceContent() {
   const {
     agentState,
@@ -43,13 +56,6 @@ function WorkspaceContent() {
   } = useAgent();
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (searchParams.get("demo") === "true" || searchParams.get("demo") === "live") {
-      runLiveDemo();
-    }
-  }, []);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -68,6 +74,10 @@ function WorkspaceContent() {
 
   return (
     <div className="flex h-screen w-screen bg-[#050608] text-slate-100 overflow-hidden font-sans antialiased select-none">
+      <React.Suspense fallback={null}>
+        <DemoUrlInitializer />
+      </React.Suspense>
+
       {/* LEFT: Narrow Navigation Rail */}
       <NavRail activeNav={activeNavRail} onSelectNav={handleNavSelect} />
 

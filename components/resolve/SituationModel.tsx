@@ -14,7 +14,10 @@ import {
   Gauge,
   Layers,
   ShieldCheck,
-  FileText,
+  Server,
+  Lock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 interface SituationModelProps {
@@ -24,6 +27,8 @@ interface SituationModelProps {
 }
 
 export const SituationModel: React.FC<SituationModelProps> = ({ data, isLivePerception = false, onRefresh }) => {
+  const localAgentConnected = data.localAgent?.connected || false;
+
   return (
     <aside className="w-80 border-l border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl flex flex-col h-full overflow-y-auto">
       {/* Signature Telemetry Header */}
@@ -48,6 +53,80 @@ export const SituationModel: React.FC<SituationModelProps> = ({ data, isLivePerc
       </div>
 
       <div className="p-3.5 space-y-3.5 flex-1 font-mono">
+        {/* LOCAL AGENT STATUS BADGE */}
+        <div className="bg-zinc-900/80 border border-zinc-800/90 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-bold">
+              <Server className="w-3.5 h-3.5 text-cyan-400" />
+              <span>LOCAL AGENT BRIDGE</span>
+            </div>
+            <span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold ${
+              localAgentConnected
+                ? "text-emerald-300 bg-emerald-950/80 border-emerald-500/50 glow-emerald"
+                : "text-zinc-400 bg-zinc-900 border-zinc-800"
+            }`}>
+              {localAgentConnected ? "LIVE LOCAL AGENT" : "LOCAL AGENT OFFLINE"}
+            </span>
+          </div>
+
+          <div className="text-[11px] font-sans text-zinc-400 leading-snug">
+            {localAgentConnected ? (
+              <span className="text-emerald-400 font-mono text-[10px] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                Connected to {data.localAgent?.agentId || "resolveai-local-7f32a"}
+              </span>
+            ) : (
+              <span className="text-zinc-500 font-mono text-[10px] flex items-center gap-1">
+                <XCircle className="w-3 h-3 text-zinc-500" />
+                Local computer access requires ResolveAI Local Agent.
+              </span>
+            )}
+          </div>
+
+          {/* Capabilities Checklist */}
+          {localAgentConnected && data.localAgent?.capabilities && (
+            <div className="pt-1 text-[10px] space-y-0.5">
+              <span className="text-zinc-500 font-bold block mb-1">CAPABILITIES:</span>
+              {data.localAgent.capabilities.map((cap) => (
+                <div key={cap} className="flex items-center gap-1 text-emerald-300 font-mono">
+                  <span className="text-emerald-400">✓</span>
+                  <span>{cap}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* COMPACT SECURITY PANEL */}
+        <div className="bg-cyan-950/20 border border-cyan-500/30 rounded-lg p-3 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-bold">
+            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+            <span>SECURITY SAFEGUARDS</span>
+          </div>
+          <div className="space-y-1 text-[10px] text-cyan-200/90 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>Read-only diagnostics allowed</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>Mutating actions require approval</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>Tools strictly allowlisted</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>Arbitrary shell execution disabled</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>Credentials kept server-side</span>
+            </div>
+          </div>
+        </div>
+
         {/* Agent Confidence Telemetry Gauge */}
         <div className="bg-zinc-900/80 border border-zinc-800/90 rounded-lg p-3 space-y-1.5">
           <div className="flex items-center justify-between text-xs text-zinc-400">

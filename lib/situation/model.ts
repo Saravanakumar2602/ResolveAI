@@ -20,6 +20,16 @@ export const INITIAL_SITUATION_MODEL: SituationModelData = {
     "Executed check_endpoint probe on localhost:3000",
     "Executed get_process_status diagnostic scan",
   ],
+  localAgent: {
+    connected: false,
+    agentId: "resolveai-local-7f32a",
+    capabilities: [
+      "get_process_status",
+      "inspect_port",
+      "get_recent_terminal_output",
+      "restart_server",
+    ],
+  },
   diagnosticEvidence: [
     {
       source: "check_endpoint",

@@ -42,6 +42,7 @@ export interface AgentTimelineEvent {
     isDemoMode?: boolean;
     isLivePerception?: boolean;
     isLiveTool?: boolean;
+    isLocalAgentTool?: boolean;
     evidenceList?: string[];
     toolName?: string;
     toolPermission?: "READ_ONLY" | "MUTATING";
@@ -58,6 +59,16 @@ export interface SituationModelData {
   confidenceScore: number;
   recentActions: string[];
   diagnosticEvidence: DiagnosticEvidence[];
+  localAgent?: {
+    connected: boolean;
+    agentId?: string;
+    capabilities: string[];
+  };
+  toolExecutions?: Array<{
+    tool: string;
+    result: any;
+    timestamp: string;
+  }>;
   toolsAvailable: {
     name: string;
     type: "Screen" | "Terminal" | "Browser" | "Files";

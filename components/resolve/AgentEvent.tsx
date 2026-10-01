@@ -19,6 +19,7 @@ import {
   Search,
   Wrench,
   ShieldCheck,
+  Server,
 } from "lucide-react";
 
 interface AgentEventProps {
@@ -148,16 +149,20 @@ export const AgentEvent: React.FC<AgentEventProps> = ({ event, onApprove, onReje
               </span>
             )}
 
-            {/* LIVE TOOL vs SIMULATED TOOL badge */}
-            {event.details?.isLiveTool !== undefined && (
-              <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                event.details.isLiveTool
-                  ? "text-emerald-300 bg-emerald-950/60 border-emerald-500/40"
-                  : "text-amber-300 bg-amber-950/60 border-amber-500/40"
-              }`}>
-                {event.details.isLiveTool ? "LIVE TOOL" : "SIMULATED TOOL"}
+            {/* LIVE LOCAL AGENT vs LIVE TOOL vs SIMULATED TOOL badge */}
+            {event.details?.isLocalAgentTool ? (
+              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border text-emerald-300 bg-emerald-950/80 border-emerald-500/50 glow-emerald flex items-center gap-1">
+                <Server className="w-2.5 h-2.5" /> LIVE LOCAL AGENT
               </span>
-            )}
+            ) : event.details?.isLiveTool ? (
+              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border text-emerald-300 bg-emerald-950/60 border-emerald-500/40">
+                LIVE TOOL
+              </span>
+            ) : event.details?.isDemoMode ? (
+              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border text-amber-300 bg-amber-950/60 border-amber-500/40">
+                SIMULATED TOOL
+              </span>
+            ) : null}
 
             <span className="text-sm font-semibold text-zinc-100">{event.title}</span>
           </div>

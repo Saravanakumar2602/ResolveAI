@@ -9,19 +9,22 @@ ResolveAI is a real-time multimodal AI operating console that perceives a user's
 ## 🌟 Architecture Overview
 
 ```
-User Voice/Text Input
-       ↓
-Next.js 15 Server API (/api/agent)
-       ↓
-Multimodal Reasoning Engine (Groq Llama 3.3 70B)
-       ↓
-Digital Situation Model Telemetry
-       ↓
-Tool Selection & Human Approval (/api/agent/approve)
-       ↓
-Safe Execution & Closed-Loop Verification Probe (/api/verify)
-       ↓
-Updated Situation Model & Real-Time Stream Response
+Browser
+   |
+   | HTTPS / Streamed Chunks
+   v
+ResolveAI Next.js Application (/api/agent & /api/local-agent)
+   |
+   +-- Multimodal Reasoning Engine (Groq Llama 3.3 70B)
+   |
+   | Authenticated Bearer Token Header (RESOLVEAI_AGENT_TOKEN)
+   v
+ResolveAI Local Agent (Node.js/TypeScript @ http://localhost:3001)
+   |
+   +-- get_process_status      (READ_ONLY)
+   +-- inspect_port            (READ_ONLY)
+   +-- get_recent_terminal_output (READ_ONLY)
+   +-- restart_server          (MUTATING - Requires explicit Human Approval)
 ```
 
 ---
@@ -37,6 +40,8 @@ resolve-ai/
 │   ├── api/
 │   │   ├── chat/route.ts      # LLM Chat Reasoning Route
 │   │   ├── agent/route.ts     # Multimodal Event Streaming Route
+│   │   ├── local-agent/route.ts # Next.js Server Bridge to Local Agent
+│   │   ├── perception/route.ts# Real Vision Model Perception Route
 │   │   └── verify/route.ts    # Closed-Loop HTTP Verification Probe
 │   └── layout.tsx
 ├── components/
@@ -45,10 +50,26 @@ resolve-ai/
 │       ├── AgentEvent.tsx          # Structured Event Cards
 │       ├── SituationModel.tsx      # Signature Digital Situation Model Telemetry
 │       ├── PerceptionStream.tsx    # Live Perception Vision Sensor Bar
-│       ├── AgentState.tsx          # Agent State Indicator (LISTENING, OBSERVING, THINKING...)
+│       ├── AgentState.tsx          # Agent State Indicator (LISTENING, OBSERVING...)
 │       ├── VoiceBar.tsx            # Voice & Multimodal Prompt Bar
+│       ├── ScreenCapture.tsx       # Ephemeral Screen Frame Capture Utility
 │       ├── ActionApproval.tsx      # Safe Human Authorization Component
 │       └── VerificationStatus.tsx  # Closed-Loop Verification Component
+├── local-agent/                    # PHASE 5: Standalone Local Agent Bridge
+│   ├── src/
+│   │   ├── index.ts               # Local Agent Runner Entrypoint
+│   │   ├── server.ts              # HTTP Server & Router (/health, /tool)
+│   │   ├── auth.ts                # Bearer Token Validator
+│   │   ├── registry.ts            # Strict Allowlisted Tool Registry
+│   │   ├── permissions.ts         # READ_ONLY vs MUTATING Permission Policy
+│   │   └── tools/
+│   │       ├── process.ts         # get_process_status Inspector
+│   │       ├── port.ts            # inspect_port Socket Probe
+│   │       ├── terminal.ts        # get_recent_terminal_output Log Reader
+│   │       └── server.ts          # restart_server Profile Restarter
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── .env.example
 ├── lib/
 │   ├── ai/
 │   │   ├── agent.ts          # Groq Llama 3.3 Agent Runner
@@ -56,6 +77,7 @@ resolve-ai/
 │   │   └── models.ts         # Model Selection Utilities
 │   ├── tools/
 │   │   ├── index.ts          # Tool Barrel Exports
+│   │   ├── diagnostics.ts    # Server-Side Diagnostic Tool Registry
 │   │   ├── browser.ts        # Browser & HTTP Telemetry Tools
 │   │   └── mock-tools.ts     # Safe Execution Sandbox Tools
 │   └── situation/
@@ -70,23 +92,30 @@ resolve-ai/
 
 ## 🚀 Quick Start
 
+### 1. Launch Next.js Application
 ```bash
-# 1. Clone repository & install dependencies
+# Install dependencies & start dev server
 npm install
-
-# 2. Copy environment variables
-cp .env.example .env.local
-
-# 3. Launch local development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the Landing Page or [http://localhost:3000/workspace](http://localhost:3000/workspace) for the live AI operating console.
+### 2. Launch ResolveAI Local Agent (Optional - Phase 5 Bridge)
+```bash
+# Navigate to local-agent directory
+cd local-agent
+
+# Install dependencies & start local agent
+npm install
+npm run dev
+```
+
+The Local Agent will start at `http://localhost:3001` and expose `GET /health` and `POST /tool`.
 
 ---
 
-## 🔒 Security & Privacy
+## 🔒 Security & Privacy Safeguards
 
-- **Human-in-the-Loop Authorization**: Consequential actions require explicit user approval.
-- **Server-Side API Key Protection**: API keys are kept in `.env.local` and never exposed to browser clients.
-- **Demo Simulation Mode**: Clear visual indicators (`DEMO MODE`) when tool calls are executed in a safe local sandbox.
+- **Strict Allowlisted Tool Registry**: Arbitrary shell execution (`POST /execute-shell`, `bash`, `powershell`, `rm`) is completely disabled.
+- **Human-in-the-Loop Authorization**: Mutating tools (`restart_server`) require explicit click authorization from the user.
+- **Server-Side Token Storage**: Agent credentials (`RESOLVEAI_AGENT_TOKEN`) remain on the server and are never exposed to browser JavaScript.
+- **Cloud Fallback**: If the Local Agent is not running, the application gracefully displays `LOCAL AGENT OFFLINE` and uses cloud endpoint diagnostics.

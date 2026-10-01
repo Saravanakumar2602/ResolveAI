@@ -4,21 +4,20 @@ import React, { useState } from "react";
 import {
   Mic,
   MicOff,
-  Monitor,
   Paperclip,
   Square,
   Send,
   Sparkles,
-  Zap,
-  Volume2,
 } from "lucide-react";
+import { ScreenCapture } from "./ScreenCapture";
 
 interface VoiceBarProps {
   onSubmit: (intent: string) => void;
   isMicActive: boolean;
   onToggleMic: () => void;
-  isScreenSharing: boolean;
-  onToggleScreenShare: () => void;
+  onScreenCapture: (base64Img: string) => void;
+  onScreenCaptureError: (errorMsg: string) => void;
+  isCapturingScreen: boolean;
   onInterrupt: () => void;
 }
 
@@ -26,8 +25,9 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
   onSubmit,
   isMicActive,
   onToggleMic,
-  isScreenSharing,
-  onToggleScreenShare,
+  onScreenCapture,
+  onScreenCaptureError,
+  isCapturingScreen,
   onInterrupt,
 }) => {
   const [inputText, setInputText] = useState<string>("");
@@ -52,10 +52,10 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
           <Sparkles className="w-3 h-3 text-cyan-400" /> Quick Intents:
         </span>
         <button
-          onClick={() => handleQuickPrompt("Fix local dev server crash and verify port 3000")}
+          onClick={() => handleQuickPrompt("My application isn't working. Find the problem.")}
           className="shrink-0 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full transition-colors hover:border-cyan-500/40"
         >
-          ⚡ Fix localhost:3000 crash
+          ⚡ My application isn&apos;t working
         </button>
         <button
           onClick={() => handleQuickPrompt("Inspect missing environment variables and update .env")}
@@ -73,25 +73,18 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
 
       {/* Main Form Input Bar */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
-        {/* Screen Share Button */}
-        <button
-          type="button"
-          onClick={onToggleScreenShare}
-          className={`p-2.5 rounded-lg border transition-all ${
-            isScreenSharing
-              ? "bg-cyan-950/60 border-cyan-500/50 text-cyan-400 glow-cyan"
-              : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
-          }`}
-          title={isScreenSharing ? "Screen Sharing Active (60fps)" : "Enable Screen Perception"}
-        >
-          <Monitor className="w-4 h-4" />
-        </button>
+        {/* Real Ephemeral Screen Capture Control */}
+        <ScreenCapture
+          onCaptureComplete={onScreenCapture}
+          onError={onScreenCaptureError}
+          isCapturing={isCapturingScreen}
+        />
 
         {/* Attachment Button */}
         <button
           type="button"
           className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
-          title="Attach diagnostic file or log snippet"
+          title="Attach diagnostic log snippet"
         >
           <Paperclip className="w-4 h-4" />
         </button>

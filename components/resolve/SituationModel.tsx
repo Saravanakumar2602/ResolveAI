@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SituationModelData } from "@/lib/mock-data";
+import { SituationModelData } from "@/types/resolve";
 import { ToolStatus } from "./ToolStatus";
 import { AgentState } from "./AgentState";
 import {
@@ -14,31 +14,35 @@ import {
   Wrench,
   Gauge,
   Layers,
-  Sparkles,
 } from "lucide-react";
 
 interface SituationModelProps {
   data: SituationModelData;
+  isLivePerception?: boolean;
   onRefresh?: () => void;
 }
 
-export const SituationModel: React.FC<SituationModelProps> = ({ data, onRefresh }) => {
+export const SituationModel: React.FC<SituationModelProps> = ({ data, isLivePerception = false, onRefresh }) => {
   return (
     <aside className="w-80 border-l border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl flex flex-col h-full overflow-y-auto">
       {/* Signature Telemetry Header */}
       <div className="p-3.5 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/60">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isLivePerception ? "bg-emerald-400" : "bg-cyan-400"} opacity-75`}></span>
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isLivePerception ? "bg-emerald-500" : "bg-cyan-500"}`}></span>
           </span>
           <h2 className="text-xs font-mono font-bold tracking-widest text-zinc-100 uppercase">
             DIGITAL SITUATION MODEL
           </h2>
         </div>
 
-        <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-1.5 py-0.5 rounded font-bold">
-          LIVE MODEL
+        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold border ${
+          isLivePerception
+            ? "text-emerald-400 bg-emerald-950/60 border-emerald-500/30"
+            : "text-amber-400 bg-amber-950/60 border-amber-500/30"
+        }`}>
+          {isLivePerception ? "LIVE VISION" : "DEMO MODEL"}
         </span>
       </div>
 
@@ -75,7 +79,7 @@ export const SituationModel: React.FC<SituationModelProps> = ({ data, onRefresh 
             <AppWindow className="w-3 h-3 text-blue-400" />
             <span>CURRENT APPLICATION</span>
           </div>
-          <div className="text-zinc-200 text-xs font-bold">{data.currentApp}</div>
+          <div className="text-zinc-200 text-xs font-bold">{data.currentApp || "Unknown Application"}</div>
         </div>
 
         {/* DETECTED UI ELEMENTS */}
@@ -85,7 +89,18 @@ export const SituationModel: React.FC<SituationModelProps> = ({ data, onRefresh 
             <span>DETECTED UI ELEMENTS</span>
           </div>
           <div className="text-zinc-300 text-[11px] leading-snug">
-            Terminal window (crashed process) + Chrome browser (http://localhost:3000 ERR_CONNECTION_REFUSED)
+            {data.detectedElements && data.detectedElements.length > 0 ? (
+              <ul className="space-y-0.5">
+                {data.detectedElements.map((elem, idx) => (
+                  <li key={idx} className="flex items-center gap-1">
+                    <span className="text-purple-400">•</span>
+                    <span>{elem}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              data.screenState
+            )}
           </div>
         </div>
 
@@ -96,7 +111,7 @@ export const SituationModel: React.FC<SituationModelProps> = ({ data, onRefresh 
             <span>DETECTED ISSUE</span>
           </div>
           <div className="text-rose-200 text-[11px] font-sans font-medium leading-snug">
-            {data.detectedIssue}
+            {data.detectedIssue || "None isolated"}
           </div>
         </div>
 

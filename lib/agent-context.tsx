@@ -7,11 +7,14 @@ import {
   EventCategory,
   SituationModelData,
   PerceptionStreamItem,
+  PerceptionAnalysisResult,
+} from "@/types/resolve";
+import {
   DEFAULT_AGENT_EVENTS,
   INITIAL_SITUATION_MODEL,
   INITIAL_PERCEPTION_STREAM,
-  MOCK_PRESET_SCENARIOS,
-} from "./mock-data";
+} from "@/lib/situation/model";
+import { MOCK_PRESET_SCENARIOS } from "./mock-data";
 
 interface AgentContextType {
   agentState: AgentStateType;
@@ -23,11 +26,15 @@ interface AgentContextType {
   setIsMicActive: (active: boolean) => void;
   isScreenSharing: boolean;
   setIsScreenSharing: (active: boolean) => void;
+  isLivePerceptionActive: boolean;
+  setIsLivePerceptionActive: (active: boolean) => void;
   activeNavRail: "resolve" | "sessions" | "memory" | "activity" | "settings";
   setActiveNavRail: (nav: "resolve" | "sessions" | "memory" | "activity" | "settings") => void;
   approveAction: (eventId: string) => Promise<void>;
   rejectAction: (eventId: string) => void;
   submitUserIntent: (intentText: string) => Promise<void>;
+  captureAndAnalyzeScreen: (base64Image: string) => Promise<void>;
+  handleScreenCaptureError: (errorMsg: string) => void;
   loadScenario: (scenarioId: string) => void;
   resetSession: () => void;
   sessionTimer: number;
@@ -41,7 +48,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [situation, setSituation] = useState<SituationModelData>(INITIAL_SITUATION_MODEL);
   const [perception, setPerception] = useState<PerceptionStreamItem[]>(INITIAL_PERCEPTION_STREAM);
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
-  const [isScreenSharing, setIsScreenSharing] = useState<boolean>(true);
+  const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
+  const [isLivePerceptionActive, setIsLivePerceptionActive] = useState<boolean>(false);
   const [activeNavRail, setActiveNavRail] = useState<"resolve" | "sessions" | "memory" | "activity" | "settings">("resolve");
   const [sessionTimer, setSessionTimer] = useState<number>(258);
 
@@ -52,6 +60,145 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(timer);
   }, []);
 
+  // Real Multimodal Perception Handler (Screen Capture -> Server API /api/perception)
+  const captureAndAnalyzeScreen = async (base64Image: string) => {
+    setIsScreenSharing(true);
+    setIsLivePerceptionActive(true);
+    setAgentState("OBSERVING");
+
+    const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    // Step 1: Observing Event
+    const obsEvt: AgentTimelineEvent = {
+      id: `evt-${Date.now()}-obs`,
+      category: "OBSERVATION",
+      title: "Environment Scan Triggered",
+      description: "Capturing your current digital environment...",
+      timestamp: time(),
+      status: "completed",
+    };
+    setEvents((prev) => [...prev, obsEvt]);
+
+    // Step 2: Perception Event
+    await new Promise((r) => setTimeout(r, 600));
+    const percEvt: AgentTimelineEvent = {
+      id: `evt-${Date.now()}-perc`,
+      category: "PERCEPTION",
+      title: "Display Frame Captured",
+      description: "Screen captured.",
+      timestamp: time(),
+      status: "completed",
+      details: {
+        isLivePerception: true,
+      },
+    };
+    setEvents((prev) => [...prev, percEvt]);
+
+    // Step 3: Understanding Event
+    await new Promise((r) => setTimeout(r, 700));
+    setAgentState("THINKING");
+    const underEvt: AgentTimelineEvent = {
+      id: `evt-${Date.now()}-under`,
+      category: "REASONING",
+      title: "Visual Analysis in Progress",
+      description: "Analyzing visual context...",
+      timestamp: time(),
+      status: "completed",
+      details: {
+        isLivePerception: true,
+      },
+    };
+    setEvents((prev) => [...prev, underEvt]);
+
+    // Step 4: Call Server Vision Route /api/perception
+    try {
+      const res = await fetch("/api/perception", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      if (!res.ok) throw new Error("Vision perception route returned error status");
+      const data: PerceptionAnalysisResult = await res.json();
+
+      // Step 5: Observation returned by Vision Model
+      const visionObsEvt: AgentTimelineEvent = {
+        id: `evt-${Date.now()}-vision`,
+        category: "OBSERVATION",
+        title: "Multimodal Vision Insights",
+        description: data.observations.join(" • ") || "Captured desktop environment frame.",
+        timestamp: time(),
+        status: "completed",
+        details: {
+          isLivePerception: true,
+          metrics: {
+            "Active Application": data.activeApplication || "Unknown",
+            "Confidence Score": `${data.confidence}%`,
+            "Visible Error": data.visibleError || "None detected",
+          },
+          logs: data.observations,
+        },
+      };
+      setEvents((prev) => [...prev, visionObsEvt]);
+
+      // Step 6: Situation Model Updated Event
+      const sitEvt: AgentTimelineEvent = {
+        id: `evt-${Date.now()}-sit`,
+        category: "DETECTION",
+        title: "Situation Model Updated",
+        description: `Model updated: Active App [${data.activeApplication || "Unknown"}], Detected Issue [${data.possibleIssue || "None"}]`,
+        timestamp: time(),
+        status: "completed",
+        details: {
+          isLivePerception: true,
+          suggestedFix: data.possibleIssue || "No immediate action required.",
+        },
+      };
+      setEvents((prev) => [...prev, sitEvt]);
+
+      // Step 7: Update Digital Situation Model State dynamically
+      setSituation((prev) => ({
+        ...prev,
+        currentApp: data.activeApplication || "Active Desktop Window",
+        screenState: data.screenState || "Active Display Surface",
+        detectedIssue: data.visibleError || data.possibleIssue || "None isolated",
+        confidenceScore: data.confidence || prev.confidenceScore,
+        agentState: "THINKING",
+        detectedElements: data.detectedElements,
+        recentActions: [
+          `Analyzed live screen capture (${data.confidence}% confidence)`,
+          ...prev.recentActions,
+        ],
+      }));
+
+      // Update Perception Stream badges
+      setPerception([
+        { id: "1", icon: "Eye", label: "Screen captured", value: "Live Stream", status: "active" },
+        { id: "2", icon: "Monitor", label: data.activeApplication || "Active App", value: "Foreground", status: "normal" },
+        { id: "3", icon: "Terminal", label: "Terminal", value: "Detected", status: "normal" },
+        { id: "4", icon: "Globe", label: "Browser", value: "Active", status: "normal" },
+        { id: "5", icon: "AlertTriangle", label: "Issue", value: data.visibleError ? "Error detected" : "Normal", status: data.visibleError ? "error" : "normal" },
+      ]);
+    } catch (err: any) {
+      handleScreenCaptureError(err.message || "Failed to analyze screen capture");
+    }
+  };
+
+  const handleScreenCaptureError = (errorMsg: string) => {
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setEvents((prev) => [
+      ...prev,
+      {
+        id: `evt-${Date.now()}-err`,
+        category: "DETECTION",
+        title: "Perception Sensor Notice",
+        description: errorMsg,
+        timestamp: time,
+        status: "failed",
+      },
+    ]);
+  };
+
   // Submit User Intent -> Stream server reasoning from /api/agent/resolve
   const submitUserIntent = async (intentText: string) => {
     if (!intentText.trim()) return;
@@ -59,7 +206,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAgentState("OBSERVING");
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-    // Add User Intent Event
     const userEvt: AgentTimelineEvent = {
       id: `evt-${Date.now()}`,
       category: "USER_INTENT",
@@ -145,7 +291,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Approve Action -> Stream tool execution and verification from /api/agent/approve
   const approveAction = async (eventId: string) => {
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, status: "completed" as const } : e))
@@ -230,6 +375,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const scenario = MOCK_PRESET_SCENARIOS.find((s) => s.id === scenarioId);
     if (!scenario) return;
 
+    setIsLivePerceptionActive(false);
     setAgentState("THINKING");
     setSituation((prev) => ({
       ...prev,
@@ -242,6 +388,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetSession = () => {
+    setIsLivePerceptionActive(false);
+    setIsScreenSharing(false);
     setAgentState("THINKING");
     setEvents(DEFAULT_AGENT_EVENTS);
     setSituation(INITIAL_SITUATION_MODEL);
@@ -260,11 +408,15 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsMicActive,
         isScreenSharing,
         setIsScreenSharing,
+        isLivePerceptionActive,
+        setIsLivePerceptionActive,
         activeNavRail,
         setActiveNavRail,
         approveAction,
         rejectAction,
         submitUserIntent,
+        captureAndAnalyzeScreen,
+        handleScreenCaptureError,
         loadScenario,
         resetSession,
         sessionTimer,

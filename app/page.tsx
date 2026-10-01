@@ -119,7 +119,7 @@ export default function LandingPage() {
         </p>
 
         <p className="text-base text-zinc-400 max-w-2xl mx-auto font-sans leading-relaxed">
-          Talk naturally. Let ResolveAI see the context, reason about the problem, take authorized actions, and verify the result.
+          ResolveAI observes your digital environment, gathers diagnostic evidence, reasons about the situation, requests approval before consequential actions, and verifies the result.
         </p>
 
         {/* CTA BUTTONS */}
@@ -129,21 +129,21 @@ export default function LandingPage() {
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-mono font-bold text-sm shadow-xl shadow-cyan-500/25 transition-all duration-200 active:scale-95"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>Start Resolving</span>
+            <span>Launch ResolveAI</span>
           </Link>
 
-          <a
-            href="#how-it-works"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-mono text-sm transition-all"
+          <Link
+            href="/app?demo=true"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-amber-500/90 hover:bg-amber-400 text-zinc-950 font-mono font-bold text-sm shadow-xl shadow-amber-500/20 transition-all duration-200 active:scale-95 glow-amber"
           >
-            <span>See How It Works</span>
-            <ChevronRight className="w-4 h-4 text-cyan-400" />
-          </a>
+            <Sparkles className="w-4 h-4 fill-current" />
+            <span>Run Live Demo</span>
+          </Link>
         </div>
 
         {/* Tagline */}
-        <div className="pt-6 font-mono text-xs tracking-widest text-zinc-500 uppercase">
-          SEE. UNDERSTAND. ACT. RESOLVE.
+        <div className="pt-6 font-mono text-xs tracking-widest text-zinc-400 uppercase">
+          SEE • UNDERSTAND • INVESTIGATE • REASON • ASK • ACT • VERIFY • RESOLVE
         </div>
       </section>
 

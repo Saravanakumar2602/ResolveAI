@@ -14,6 +14,7 @@ import {
   INITIAL_PERCEPTION_STREAM,
 } from "@/lib/situation/model";
 import { DEFAULT_AGENT_EVENTS, MOCK_PRESET_SCENARIOS } from "./mock-data";
+import { demoController, DemoStep } from "./demo/demo-controller";
 
 interface AgentContextType {
   agentState: AgentStateType;
@@ -37,6 +38,9 @@ interface AgentContextType {
   loadScenario: (scenarioId: string) => void;
   resetSession: () => void;
   checkLocalAgentHealth: () => Promise<void>;
+  runLiveDemo: (options?: { failOnAction?: boolean }) => Promise<void>;
+  runDemoFailurePath: () => Promise<void>;
+  isDemoActive: boolean;
   sessionTimer: number;
 }
 
@@ -325,7 +329,32 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const runLiveDemo = async (options?: { failOnAction?: boolean }) => {
+    resetSession();
+    await new Promise((r) => setTimeout(r, 200));
+    await demoController.runTroubleshootingScenario(
+      { setAgentState, setEvents, setSituation },
+      {
+        isLocalAgentConnected: situation.localAgent?.connected,
+        failOnAction: options?.failOnAction,
+      }
+    );
+  };
+
+  const runDemoFailurePath = async () => {
+    await runLiveDemo({ failOnAction: true });
+  };
+
   const approveAction = async (eventId: string) => {
+    if (eventId.startsWith("demo-evt-") || demoController.isDemoActive()) {
+      await demoController.executeApprovedAction(
+        eventId,
+        { setAgentState, setEvents, setSituation },
+        { isLocalAgentConnected: situation.localAgent?.connected }
+      );
+      return;
+    }
+
     setEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, status: "completed" as const } : e))
     );
@@ -497,6 +526,20 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((e) => (e.id === eventId ? { ...e, status: "failed" as const } : e))
     );
     setAgentState("THINKING");
+
+    // Add rejection reasoning event
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setEvents((prev) => [
+      ...prev,
+      {
+        id: `evt-${Date.now()}-reject-notice`,
+        category: "REASONING",
+        title: "Action Rejected by User",
+        description: "User rejected proposed action. No system mutations performed.",
+        timestamp: time,
+        status: "completed",
+      },
+    ]);
   };
 
   const loadScenario = (scenarioId: string) => {
@@ -549,6 +592,9 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loadScenario,
         resetSession,
         checkLocalAgentHealth,
+        runLiveDemo,
+        runDemoFailurePath,
+        isDemoActive: demoController.isDemoActive(),
         sessionTimer,
       }}
     >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AgentProvider, useAgent } from "@/lib/agent-context";
 import { NavRail } from "@/components/resolve/NavRail";
 import { AgentState } from "@/components/resolve/AgentState";
@@ -12,8 +12,9 @@ import { SessionsModal } from "@/components/resolve/SessionsModal";
 import { MemoryModal } from "@/components/resolve/MemoryModal";
 import { ActivityModal } from "@/components/resolve/ActivityModal";
 import { SettingsModal } from "@/components/resolve/SettingsModal";
-import { Shield, Clock, RefreshCw, ArrowLeft, Terminal, Eye } from "lucide-react";
+import { Shield, Clock, RefreshCw, ArrowLeft, Terminal, Eye, Play, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 function WorkspaceContent() {
   const {
@@ -35,10 +36,20 @@ function WorkspaceContent() {
     handleScreenCaptureError,
     loadScenario,
     resetSession,
+    runLiveDemo,
+    runDemoFailurePath,
+    isDemoActive,
     sessionTimer,
   } = useAgent();
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("demo") === "true" || searchParams.get("demo") === "live") {
+      runLiveDemo();
+    }
+  }, []);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -89,15 +100,32 @@ function WorkspaceContent() {
 
             <div className="flex items-center gap-2 text-xs font-mono">
               <span className="text-zinc-400 font-medium">Live Session #RES-8942</span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                ACTIVE PERCEPTION
-              </span>
+              {situation.localAgent?.connected ? (
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  LIVE LOCAL AGENT
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 px-2 py-0.5 rounded-full font-bold">
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+                  ACTIVE PERCEPTION
+                </span>
+              )}
             </div>
           </div>
 
           {/* Header Right Controls */}
           <div className="flex items-center gap-3">
+            {/* ONE-CLICK RUN LIVE DEMO BUTTON */}
+            <button
+              onClick={() => runLiveDemo()}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono font-bold text-xs shadow-lg shadow-amber-500/20 transition-all duration-200 active:scale-95 glow-amber"
+              title="Run deterministic Troubleshooting Demo scenario"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>RUN LIVE DEMO</span>
+            </button>
+
             {/* LIVE PERCEPTION vs DEMO MODE INDICATOR */}
             {isLivePerceptionActive ? (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 font-mono text-[11px] font-bold glow-emerald">
@@ -106,6 +134,11 @@ function WorkspaceContent() {
                 <span className="text-[9px] text-emerald-400/80 font-normal border-l border-emerald-500/30 pl-1.5 ml-0.5">
                   VISION ACTIVE
                 </span>
+              </div>
+            ) : situation.localAgent?.connected ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-bold">
+                <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                <span>LIVE LOCAL AGENT</span>
               </div>
             ) : (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/50 border border-amber-500/40 text-amber-300 font-mono text-[11px] font-bold">

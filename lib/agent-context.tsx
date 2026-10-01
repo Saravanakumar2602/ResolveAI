@@ -10,11 +10,10 @@ import {
   PerceptionAnalysisResult,
 } from "@/types/resolve";
 import {
-  DEFAULT_AGENT_EVENTS,
   INITIAL_SITUATION_MODEL,
   INITIAL_PERCEPTION_STREAM,
 } from "@/lib/situation/model";
-import { MOCK_PRESET_SCENARIOS } from "./mock-data";
+import { DEFAULT_AGENT_EVENTS, MOCK_PRESET_SCENARIOS } from "./mock-data";
 
 interface AgentContextType {
   agentState: AgentStateType;
@@ -60,7 +59,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearInterval(timer);
   }, []);
 
-  // Real Multimodal Perception Handler (Screen Capture -> Server API /api/perception)
   const captureAndAnalyzeScreen = async (base64Image: string) => {
     setIsScreenSharing(true);
     setIsLivePerceptionActive(true);
@@ -68,7 +66,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-    // Step 1: Observing Event
     const obsEvt: AgentTimelineEvent = {
       id: `evt-${Date.now()}-obs`,
       category: "OBSERVATION",
@@ -79,7 +76,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setEvents((prev) => [...prev, obsEvt]);
 
-    // Step 2: Perception Event
     await new Promise((r) => setTimeout(r, 600));
     const percEvt: AgentTimelineEvent = {
       id: `evt-${Date.now()}-perc`,
@@ -94,7 +90,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setEvents((prev) => [...prev, percEvt]);
 
-    // Step 3: Understanding Event
     await new Promise((r) => setTimeout(r, 700));
     setAgentState("THINKING");
     const underEvt: AgentTimelineEvent = {
@@ -110,7 +105,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setEvents((prev) => [...prev, underEvt]);
 
-    // Step 4: Call Server Vision Route /api/perception
     try {
       const res = await fetch("/api/perception", {
         method: "POST",
@@ -121,7 +115,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!res.ok) throw new Error("Vision perception route returned error status");
       const data: PerceptionAnalysisResult = await res.json();
 
-      // Step 5: Observation returned by Vision Model
       const visionObsEvt: AgentTimelineEvent = {
         id: `evt-${Date.now()}-vision`,
         category: "OBSERVATION",
@@ -141,7 +134,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       setEvents((prev) => [...prev, visionObsEvt]);
 
-      // Step 6: Situation Model Updated Event
       const sitEvt: AgentTimelineEvent = {
         id: `evt-${Date.now()}-sit`,
         category: "DETECTION",
@@ -156,7 +148,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       setEvents((prev) => [...prev, sitEvt]);
 
-      // Step 7: Update Digital Situation Model State dynamically
       setSituation((prev) => ({
         ...prev,
         currentApp: data.activeApplication || "Active Desktop Window",
@@ -171,7 +162,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ],
       }));
 
-      // Update Perception Stream badges
       setPerception([
         { id: "1", icon: "Eye", label: "Screen captured", value: "Live Stream", status: "active" },
         { id: "2", icon: "Monitor", label: data.activeApplication || "Active App", value: "Foreground", status: "normal" },
@@ -199,7 +189,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ]);
   };
 
-  // Submit User Intent -> Stream server reasoning from /api/agent/resolve
   const submitUserIntent = async (intentText: string) => {
     if (!intentText.trim()) return;
 

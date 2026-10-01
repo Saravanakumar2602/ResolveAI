@@ -2,10 +2,11 @@
 
 import React from "react";
 import { CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
+import { EventStatus } from "@/types/resolve";
 
 interface VerificationStatusProps {
   metrics?: Record<string, string | number>;
-  status?: "completed" | "in_progress" | "failed";
+  status?: EventStatus;
 }
 
 export const VerificationStatus: React.FC<VerificationStatusProps> = ({ metrics, status = "completed" }) => {

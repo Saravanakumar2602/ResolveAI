@@ -112,7 +112,6 @@ export async function inspectPort(port: number = 3000): Promise<PortInspectionRe
     };
   }
 
-  // Local environment inspection probe
   const endpointCheck = await checkEndpoint(`http://localhost:${port}`);
   return {
     tool: "inspect_port",
@@ -174,7 +173,7 @@ export async function getRecentTerminalOutput(): Promise<TerminalOutputResult> {
 /**
  * Central Diagnostic Tool Definitions Registry
  */
-export font_diagnostic_tools_registry: Record<string, DiagnosticToolDefinition> = {
+export const font_diagnostic_tools_registry: Record<string, DiagnosticToolDefinition> = {
   check_endpoint: {
     id: "check_endpoint",
     name: "Check Endpoint Reachability",

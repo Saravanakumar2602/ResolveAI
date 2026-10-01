@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Mic,
   MicOff,
@@ -8,6 +8,8 @@ import {
   Square,
   Send,
   Sparkles,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { ScreenCapture } from "./ScreenCapture";
 
@@ -21,6 +23,8 @@ interface VoiceBarProps {
   onInterrupt: () => void;
 }
 
+export type VoiceState = "IDLE" | "LISTENING" | "PROCESSING" | "RESPONDING";
+
 export const VoiceBar: React.FC<VoiceBarProps> = ({
   onSubmit,
   isMicActive,
@@ -31,17 +35,96 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
   onInterrupt,
 }) => {
   const [inputText, setInputText] = useState<string>("");
+  const [voiceState, setVoiceState] = useState<VoiceState>("IDLE");
+  const [micError, setMicError] = useState<string | null>(null);
+  const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
+
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize Web Speech API if available in browser
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        setIsSpeechSupported(false);
+      } else {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onstart = () => {
+          setVoiceState("LISTENING");
+          setMicError(null);
+        };
+
+        recognition.onresult = (event: any) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInputText(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.warn("Speech recognition notice:", event.error);
+          if (event.error === "not-allowed" || event.error === "permission-denied") {
+            setMicError("Microphone permission denied.");
+          } else if (event.error !== "no-speech") {
+            setMicError(`Voice notice: ${event.error}`);
+          }
+          setVoiceState("IDLE");
+          if (isMicActive) onToggleMic();
+        };
+
+        recognition.onend = () => {
+          setVoiceState("PROCESSING");
+          setTimeout(() => {
+            setVoiceState("IDLE");
+          }, 800);
+          if (isMicActive) onToggleMic();
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+  }, []);
+
+  // Synchronize mic toggle with Web Speech Recognition
+  useEffect(() => {
+    if (!recognitionRef.current) return;
+
+    if (isMicActive) {
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        // Recognition already active
+      }
+    } else {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        // Recognition already stopped
+      }
+    }
+  }, [isMicActive]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
+    setVoiceState("RESPONDING");
     onSubmit(inputText);
     setInputText("");
+    setTimeout(() => setVoiceState("IDLE"), 1000);
   };
 
   const handleQuickPrompt = (prompt: string) => {
     setInputText(prompt);
+    setVoiceState("RESPONDING");
     onSubmit(prompt);
+    setTimeout(() => setVoiceState("IDLE"), 1000);
   };
 
   return (
@@ -58,10 +141,10 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
           ⚡ My application isn&apos;t working
         </button>
         <button
-          onClick={() => handleQuickPrompt("Inspect missing environment variables and update .env")}
+          onClick={() => handleQuickPrompt("What is causing this error?")}
           className="shrink-0 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full transition-colors hover:border-purple-500/40"
         >
-          🔍 Inspect .env parameters
+          ❓ What is this error?
         </button>
         <button
           onClick={() => handleQuickPrompt("Run build verification and audit console warnings")}
@@ -70,6 +153,24 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
           🛡 Run build verification
         </button>
       </div>
+
+      {/* Mic Permission / Browser Unsupported Notice */}
+      {(!isSpeechSupported || micError) && (
+        <div className="px-2.5 py-1 rounded bg-amber-950/40 border border-amber-500/30 text-[11px] font-mono text-amber-300 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+            {!isSpeechSupported
+              ? "Voice input unsupported in browser — use text input below."
+              : micError}
+          </span>
+          <button
+            onClick={() => setMicError(null)}
+            className="text-[10px] text-amber-400 hover:underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Form Input Bar */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
@@ -95,17 +196,28 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Tell ResolveAI what you need..."
+            placeholder={
+              voiceState === "LISTENING"
+                ? "Listening... Speak naturally..."
+                : "Tell ResolveAI what you need..."
+            }
             className="w-full bg-transparent py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none font-sans"
           />
 
-          {/* Animated Mic Waveform when mic is active */}
-          {isMicActive && (
+          {/* Voice State Animated Indicator */}
+          {voiceState === "LISTENING" && (
             <div className="flex items-center gap-1 px-2 py-1 bg-cyan-950/80 rounded border border-cyan-500/40 mr-2">
-              <span className="w-1 h-3 bg-cyan-400 rounded-full animate-waveform"></span>
-              <span className="w-1 h-5 bg-cyan-400 rounded-full animate-waveform" style={{ animationDelay: "0.2s" }}></span>
-              <span className="w-1 h-2 bg-cyan-400 rounded-full animate-waveform" style={{ animationDelay: "0.4s" }}></span>
+              <span className="w-1 h-3 bg-cyan-400 rounded-full animate-waveform" />
+              <span className="w-1 h-5 bg-cyan-400 rounded-full animate-waveform" style={{ animationDelay: "0.2s" }} />
+              <span className="w-1 h-2 bg-cyan-400 rounded-full animate-waveform" style={{ animationDelay: "0.4s" }} />
               <span className="text-[10px] font-mono text-cyan-300 font-bold ml-1">LISTENING</span>
+            </div>
+          )}
+
+          {voiceState === "PROCESSING" && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-purple-950/80 rounded border border-purple-500/40 mr-2 text-[10px] font-mono text-purple-300">
+              <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+              <span>PROCESSING</span>
             </div>
           )}
 
@@ -123,12 +235,21 @@ export const VoiceBar: React.FC<VoiceBarProps> = ({
         <button
           type="button"
           onClick={onToggleMic}
+          disabled={!isSpeechSupported}
           className={`relative p-3 rounded-full border transition-all duration-300 active:scale-95 ${
             isMicActive
               ? "bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-500/40 animate-pulse"
-              : "bg-cyan-500 hover:bg-cyan-400 border-cyan-400 text-zinc-950 font-bold shadow-lg shadow-cyan-500/25"
+              : isSpeechSupported
+              ? "bg-cyan-500 hover:bg-cyan-400 border-cyan-400 text-zinc-950 font-bold shadow-lg shadow-cyan-500/25"
+              : "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
           }`}
-          title={isMicActive ? "Stop Voice Mode" : "Activate Multimodal Voice Input"}
+          title={
+            !isSpeechSupported
+              ? "Speech recognition unsupported"
+              : isMicActive
+              ? "Stop Voice Recording"
+              : "Activate Voice Recording"
+          }
         >
           {isMicActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>

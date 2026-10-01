@@ -1,4 +1,5 @@
 import { AgentStateType } from "@/lib/mock-data";
+import { analyzeUserIntent } from "@/lib/ai/agent";
 
 export interface ServerAgentEvent {
   type:
@@ -23,22 +24,6 @@ export interface ServerAgentEvent {
     suggestedFix?: string;
     isDemoMode?: boolean;
   };
-}
-
-export interface SituationModelServer {
-  userGoal: string;
-  currentApp: string;
-  screenState: string;
-  detectedIssue: string;
-  agentState: AgentStateType;
-  confidenceScore: number;
-  recentActions: string[];
-  toolsAvailable: {
-    name: string;
-    type: "Screen" | "Terminal" | "Browser" | "Files";
-    status: "Active" | "Authorized" | "Connected" | "Standby";
-    icon: string;
-  }[];
 }
 
 export interface SafeTool {
@@ -91,7 +76,7 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
         messages: [
           {
             role: "system",
-            content: "You are ResolveAI, an autonomous multimodal AI agent. Provide a 1-sentence analysis of why the user's local web server stopped.",
+            content: "You are ResolveAI, an autonomous multimodal AI agent. Answer: 1. What is probably happening? 2. What evidence supports this? 3. What should be done next?",
           },
           {
             role: "user",
@@ -99,7 +84,7 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
           },
         ],
         temperature: 0.2,
-        max_tokens: 120,
+        max_tokens: 150,
       }),
     });
 
@@ -112,33 +97,35 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
 }
 
 /**
- * Multimodal reasoning engine stream generator for the demonstration scenario.
+ * Multimodal reasoning engine stream generator with Server Intent Analysis.
  */
 export async function* runAgentReasoningPipeline(
   intent: string
 ): AsyncGenerator<ServerAgentEvent, void, unknown> {
   const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
+  // Step 0: Server-Side Intent Analysis
+  const intentAnalysis = await analyzeUserIntent(intent);
   const groqDiagnosis = await callGroqReasoning(intent);
 
-  // 1. LISTENING & PERCEPTION
+  // Step 1: PERCEPTION
   yield {
     type: "perception",
-    message: "Analyzing screen context, active windows, and terminal traceback...",
+    message: "Scanning active desktop windows, OCR frame buffer, and terminal process state...",
     timestamp: time(),
     details: {
       isDemoMode: true,
       metrics: {
-        "Vision Stream": "3840x2160 @ 60FPS",
-        "Active Windows": "VS Code, Chrome Browser, iTerm2",
-        "OCR Extraction": "1,420 tokens parsed",
+        "User Goal": intentAnalysis.goal,
+        "Requires Action": intentAnalysis.requiresAction ? "Yes" : "No (Informational)",
+        "AI Engine": groqDiagnosis ? "Groq Llama 3.3 70B" : "ResolveAI Engine",
       },
     },
   };
 
-  await new Promise((r) => setTimeout(r, 1200));
+  await new Promise((r) => setTimeout(r, 1100));
 
-  // 2. OBSERVING & UNDERSTANDING
+  // Step 2: OBSERVATION
   yield {
     type: "observation",
     message: "VS Code and terminal detected. Connection refused on http://localhost:3000.",
@@ -154,33 +141,47 @@ export async function* runAgentReasoningPipeline(
     },
   };
 
-  await new Promise((r) => setTimeout(r, 1400));
+  await new Promise((r) => setTimeout(r, 1200));
 
-  // 3. REASONING
+  // Step 3: REASONING
   yield {
     type: "reasoning",
-    message: groqDiagnosis || "The application server appears to have stopped unexpected socket binding on port 3000.",
+    message:
+      groqDiagnosis ||
+      "The development server appears to be unavailable. The terminal shows a failed process and the browser cannot connect to localhost:3000.",
     timestamp: time(),
     details: {
       isDemoMode: true,
-      suggestedFix: "Restart the development server in background terminal environment.",
+      suggestedFix: intentAnalysis.requiresAction
+        ? "Restart the development server in background terminal environment."
+        : "Explain visible error log context to user.",
     },
   };
 
-  await new Promise((r) => setTimeout(r, 1500));
+  await new Promise((r) => setTimeout(r, 1300));
 
-  // 4. ACTION PROPOSAL
-  yield {
-    type: "action_request",
-    message: "Restart the development server",
-    tool: "restart_server",
-    requiresApproval: true,
-    timestamp: time(),
-    details: {
-      isDemoMode: true,
-      codeSnippet: `# Planned Action (Demo Simulation Mode):
-npm run dev -- --port 3000`,
-      affectedFiles: ["server.js"],
-    },
-  };
+  // Step 4: Conditionally emit ACTION_PROPOSED or INFORMATIONAL SUCCESS
+  if (intentAnalysis.requiresAction) {
+    yield {
+      type: "action_request",
+      message: "Restart the development server",
+      tool: "restart_server",
+      requiresApproval: true,
+      timestamp: time(),
+      details: {
+        isDemoMode: true,
+        codeSnippet: `npm run dev -- --port 3000`,
+        affectedFiles: ["server.js"],
+      },
+    };
+  } else {
+    yield {
+      type: "success",
+      message: "Informational analysis complete: " + (groqDiagnosis || "The server stopped because port 3000 socket was closed."),
+      timestamp: time(),
+      details: {
+        isDemoMode: true,
+      },
+    };
+  }
 }

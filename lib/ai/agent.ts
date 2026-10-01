@@ -1,10 +1,47 @@
 import { getActiveModel } from "./models";
 import { buildDiagnosisPrompt, font_system_prompt } from "./prompts";
 
+export interface AgentIntentAnalysis {
+  intent: "troubleshoot_application" | "informational_query" | "system_command";
+  goal: string;
+  requiresScreenContext: boolean;
+  requiresAction: boolean;
+}
+
+/**
+ * Server-side intent analysis step to determine if request is operational or informational
+ */
+export async function analyzeUserIntent(userIntent: string): Promise<AgentIntentAnalysis> {
+  const lowercase = userIntent.toLowerCase();
+
+  // Informational query check (e.g. "what is this error?", "explain this code")
+  if (
+    lowercase.includes("what is") ||
+    lowercase.includes("explain") ||
+    lowercase.includes("meaning of") ||
+    lowercase.includes("why does")
+  ) {
+    return {
+      intent: "informational_query",
+      goal: "Explain visible error without system modification",
+      requiresScreenContext: true,
+      requiresAction: false,
+    };
+  }
+
+  // Default operational troubleshooting request
+  return {
+    intent: "troubleshoot_application",
+    goal: "Find and resolve application problem",
+    requiresScreenContext: true,
+    requiresAction: true,
+  };
+}
+
 export async function generateAgentDiagnosis(intent: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return "The application server appears to have stopped unexpected socket binding on port 3000.";
+    return "The application server appears to be unavailable. The terminal shows a failed process and the browser cannot connect to localhost:3000.";
   }
 
   try {
@@ -21,20 +58,20 @@ export async function generateAgentDiagnosis(intent: string): Promise<string> {
           { role: "user", content: buildDiagnosisPrompt(intent) },
         ],
         temperature: 0.2,
-        max_tokens: 120,
+        max_tokens: 140,
       }),
     });
 
     if (!response.ok) {
-      return "The application server appears to have stopped unexpected socket binding on port 3000.";
+      return "The application server appears to be unavailable. The terminal shows a failed process and the browser cannot connect to localhost:3000.";
     }
 
     const data = await response.json();
     return (
       data.choices?.[0]?.message?.content ||
-      "The application server appears to have stopped unexpected socket binding on port 3000."
+      "The application server appears to be unavailable. The terminal shows a failed process and the browser cannot connect to localhost:3000."
     );
   } catch (e) {
-    return "The application server appears to have stopped unexpected socket binding on port 3000.";
+    return "The application server appears to be unavailable. The terminal shows a failed process and the browser cannot connect to localhost:3000.";
   }
 }

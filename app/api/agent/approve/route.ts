@@ -15,54 +15,59 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-        // 1. Action Event
+        // 1. ACTION STEP
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
               type: "action",
-              message: `Executing authorized tool: ${tool.name}...`,
+              message: "Restarting server... (Simulated execution)",
               timestamp: time(),
               details: {
+                isDemoMode: true,
                 logs: [
-                  `[resolveai-server] > Tool ID: ${tool.id}`,
-                  `[resolveai-server] > Security Status: Authorized by user`,
-                  `[resolveai-server] > Executing bash script...`,
+                  "[demo-sandbox] > stopping stalled PID 4892...",
+                  "[demo-sandbox] > executing npm run dev...",
+                  "[demo-sandbox] ready - started server on 0.0.0.0:3000",
                 ],
               },
             }) + "\n"
           )
         );
 
-        // Execute safe tool
-        const toolResult = await tool.execute({});
+        // Execute simulated safe tool
+        await tool.execute({});
 
-        // 2. Verification Event
-        await new Promise((r) => setTimeout(r, 1000));
+        // 2. VERIFICATION STEP
+        await new Promise((r) => setTimeout(r, 1600));
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
               type: "verification",
-              message: "Probing application response on http://localhost:3000...",
+              message: "Checking whether localhost:3000 is responding...",
               timestamp: time(),
               details: {
+                isDemoMode: true,
                 metrics: {
                   "HTTP Status": "200 OK",
-                  "Probe Latency": "14ms",
-                  "Process Health": "100%",
+                  "Response Time": "14ms",
+                  "Verification Probe": "PASSED",
                 },
               },
             }) + "\n"
           )
         );
 
-        // 3. Success Event
-        await new Promise((r) => setTimeout(r, 1200));
+        // 3. SUCCESS / RESULT STEP
+        await new Promise((r) => setTimeout(r, 1800));
         controller.enqueue(
           encoder.encode(
             JSON.stringify({
               type: "success",
-              message: "Application is responding normally on http://localhost:3000.",
+              message: "✓ RESOLVED - The application is responding normally.",
               timestamp: time(),
+              details: {
+                isDemoMode: true,
+              },
             }) + "\n"
           )
         );

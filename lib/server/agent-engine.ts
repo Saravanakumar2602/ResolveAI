@@ -21,6 +21,7 @@ export interface ServerAgentEvent {
     logs?: string[];
     affectedFiles?: string[];
     suggestedFix?: string;
+    isDemoMode?: boolean;
   };
 }
 
@@ -45,6 +46,7 @@ export interface SafeTool {
   name: string;
   description: string;
   requiresApproval: boolean;
+  isDemoSimulated: boolean;
   execute: (args: Record<string, any>) => Promise<{ success: boolean; result: string; logs?: string[] }>;
 }
 
@@ -54,43 +56,17 @@ export const SAFE_TOOLS_REGISTRY: Record<string, SafeTool> = {
     name: "Restart Development Server",
     description: "Launches background dev server process on port 3000",
     requiresApproval: true,
+    isDemoSimulated: true,
     execute: async () => {
-      await new Promise((res) => setTimeout(res, 1200));
+      await new Promise((res) => setTimeout(res, 1400));
       return {
         success: true,
-        result: "Development server restarted cleanly on http://localhost:3000",
+        result: "[DEMO MODE] Development server restarted cleanly on http://localhost:3000",
         logs: [
-          "[resolveai-tool] > stopping stalled PID 4892...",
-          "[resolveai-tool] > executing npm run dev...",
-          "[resolveai-tool] ready - started server on 0.0.0.0:3000",
+          "[demo-sandbox] > stopping stalled PID 4892...",
+          "[demo-sandbox] > executing npm run dev...",
+          "[demo-sandbox] ready - started server on 0.0.0.0:3000 (24ms)",
         ],
-      };
-    },
-  },
-  create_config_file: {
-    id: "create_config_file",
-    name: "Create Local Environment Config",
-    description: "Generates .env.local fallback configuration file",
-    requiresApproval: true,
-    execute: async () => {
-      await new Promise((res) => setTimeout(res, 800));
-      return {
-        success: true,
-        result: "Created .env.local with DATABASE_URL fallback",
-        logs: ["[resolveai-tool] > writing .env.local... DONE"],
-      };
-    },
-  },
-  probe_endpoint: {
-    id: "probe_endpoint",
-    name: "Verify Endpoint Status",
-    description: "Issues HTTP HEAD request to target host",
-    requiresApproval: false,
-    execute: async () => {
-      await new Promise((res) => setTimeout(res, 600));
-      return {
-        success: true,
-        result: "HTTP 200 OK (14ms latency)",
       };
     },
   },
@@ -115,7 +91,7 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
         messages: [
           {
             role: "system",
-            content: "You are ResolveAI, an autonomous multimodal AI agent. Provide a concise 1-sentence technical diagnosis for the user issue.",
+            content: "You are ResolveAI, an autonomous multimodal AI agent. Provide a 1-sentence analysis of why the user's local web server stopped.",
           },
           {
             role: "user",
@@ -123,7 +99,7 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
           },
         ],
         temperature: 0.2,
-        max_tokens: 150,
+        max_tokens: 120,
       }),
     });
 
@@ -131,83 +107,80 @@ async function callGroqReasoning(userIntent: string): Promise<string | null> {
     const data = await response.json();
     return data.choices?.[0]?.message?.content || null;
   } catch (e) {
-    console.error("Groq API call error:", e);
     return null;
   }
 }
 
 /**
- * Multimodal reasoning engine stream generator.
+ * Multimodal reasoning engine stream generator for the demonstration scenario.
  */
 export async function* runAgentReasoningPipeline(
   intent: string
 ): AsyncGenerator<ServerAgentEvent, void, unknown> {
   const time = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-  // Try calling Groq AI Llama 3 model
   const groqDiagnosis = await callGroqReasoning(intent);
 
-  // Step 1: Perception
+  // 1. LISTENING & PERCEPTION
   yield {
     type: "perception",
-    message: "Scanning active desktop windows, OCR frame buffer, and terminal process state...",
+    message: "Analyzing screen context, active windows, and terminal traceback...",
     timestamp: time(),
     details: {
+      isDemoMode: true,
       metrics: {
-        "Vision Sensor": "3840x2160 @ 60FPS",
-        "Active Application": "VS Code + Integrated Terminal",
-        "OCR Extraction": "1,420 tokens",
-        "AI Engine": groqDiagnosis ? "Groq Llama 3.3 70B" : "ResolveAI Native Engine",
+        "Vision Stream": "3840x2160 @ 60FPS",
+        "Active Windows": "VS Code, Chrome Browser, iTerm2",
+        "OCR Extraction": "1,420 tokens parsed",
       },
     },
   };
 
-  await new Promise((r) => setTimeout(r, 900));
+  await new Promise((r) => setTimeout(r, 1200));
 
-  // Step 2: Observation
+  // 2. OBSERVING & UNDERSTANDING
   yield {
     type: "observation",
-    message: "Terminal process exited with status code 1. Browser shows ERR_CONNECTION_REFUSED on http://localhost:3000.",
+    message: "VS Code and terminal detected. Connection refused on http://localhost:3000.",
     timestamp: time(),
     details: {
+      isDemoMode: true,
       logs: [
         "[10:13:58] > next dev",
-        "[10:13:59] Error: Invalid environment variable DATABASE_URL",
+        "[10:13:59] Error: Connection refused on localhost:3000",
         "[10:13:59] Process exited with code 1",
       ],
-      affectedFiles: [".env.example", "config.ts"],
+      affectedFiles: ["package.json", "server.js"],
     },
   };
 
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((r) => setTimeout(r, 1400));
 
-  // Step 3: Reasoning
+  // 3. REASONING
   yield {
     type: "reasoning",
-    message: groqDiagnosis || `Synthesizing resolution strategy for: "${intent}". Missing .env.local configuration file detected.`,
+    message: groqDiagnosis || "The application server appears to have stopped unexpected socket binding on port 3000.",
     timestamp: time(),
     details: {
-      suggestedFix: "Generate .env.local from project template and restart background server worker.",
+      isDemoMode: true,
+      suggestedFix: "Restart the development server in background terminal environment.",
     },
   };
 
-  await new Promise((r) => setTimeout(r, 1100));
+  await new Promise((r) => setTimeout(r, 1500));
 
-  // Step 4: Action Requested
+  // 4. ACTION PROPOSAL
   yield {
     type: "action_request",
-    message: "ResolveAI requests permission to create .env.local and launch npm run dev",
+    message: "Restart the development server",
     tool: "restart_server",
     requiresApproval: true,
     timestamp: time(),
     details: {
-      codeSnippet: `cat << 'EOF' > .env.local
-DATABASE_URL="file:./dev.db"
-NEXT_PUBLIC_API_URL="http://localhost:3000"
-EOF
-
-npm run dev`,
-      affectedFiles: [".env.local"],
+      isDemoMode: true,
+      codeSnippet: `# Planned Action (Demo Simulation Mode):
+npm run dev -- --port 3000`,
+      affectedFiles: ["server.js"],
     },
   };
 }

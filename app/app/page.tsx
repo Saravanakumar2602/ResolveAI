@@ -12,7 +12,7 @@ import { SessionsModal } from "@/components/resolve/SessionsModal";
 import { MemoryModal } from "@/components/resolve/MemoryModal";
 import { ActivityModal } from "@/components/resolve/ActivityModal";
 import { SettingsModal } from "@/components/resolve/SettingsModal";
-import { Shield, Radio, Clock, Sparkles, RefreshCw, ArrowLeft } from "lucide-react";
+import { Shield, Clock, RefreshCw, ArrowLeft, Terminal } from "lucide-react";
 import Link from "next/link";
 
 function WorkspaceContent() {
@@ -53,14 +53,14 @@ function WorkspaceContent() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-console-bg text-console-text overflow-hidden font-sans antialiased select-none">
+    <div className="flex h-screen w-screen bg-[#050608] text-slate-100 overflow-hidden font-sans antialiased select-none">
       {/* LEFT: Narrow Navigation Rail */}
       <NavRail activeNav={activeNavRail} onSelectNav={handleNavSelect} />
 
       {/* CENTER & RIGHT CONTENT CONTAINER */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* CENTER TOP HEADER BAR */}
-        <header className="h-14 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-xl px-4 flex items-center justify-between z-20">
+        <header className="h-14 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl px-4 flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -86,7 +86,7 @@ function WorkspaceContent() {
 
             <div className="flex items-center gap-2 text-xs font-mono">
               <span className="text-zinc-400 font-medium">Live Session #RES-8942</span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
                 ACTIVE PERCEPTION
               </span>
@@ -94,7 +94,16 @@ function WorkspaceContent() {
           </div>
 
           {/* Header Right Controls */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* DEMO MODE INDICATOR */}
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/50 border border-amber-500/40 text-amber-300 font-mono text-[11px] font-bold">
+              <Terminal className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>DEMO MODE</span>
+              <span className="text-[9px] text-amber-400/80 font-normal border-l border-amber-500/30 pl-1.5 ml-0.5">
+                SIMULATED TOOLS
+              </span>
+            </div>
+
             {/* Session Timer */}
             <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded">
               <Clock className="w-3.5 h-3.5 text-cyan-400" />
@@ -115,10 +124,10 @@ function WorkspaceContent() {
           </div>
         </header>
 
-        {/* MAIN WORKSPACE BODY (CENTER TIMELINE + RIGHT SITUATION PANEL) */}
+        {/* MAIN WORKSPACE BODY */}
         <div className="flex-1 flex overflow-hidden">
           {/* CENTER: Main AI Workspace */}
-          <main className="flex-1 flex flex-col h-full overflow-hidden bg-console-bg">
+          <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#050608]">
             {/* Perception Stream Bar */}
             <div className="p-3 border-b border-zinc-800/80 bg-zinc-950/40">
               <PerceptionStream items={perception} isScreenSharing={isScreenSharing} />
